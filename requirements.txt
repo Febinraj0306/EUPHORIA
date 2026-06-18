@@ -1,0 +1,6 @@
+certifi
+mutagen
+pycryptodomex
+requests
+urllib3
+websockets
