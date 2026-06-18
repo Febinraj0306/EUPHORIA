@@ -214,10 +214,11 @@ class AudioPlayerHandler(BaseHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(b'Not Found')
 
-def main(port=5000):
-    server_address = ('', port)
+def main():
+    port = int(os.environ.get('PORT', 5000))
+    server_address = ('0.0.0.0', port)
     httpd = HTTPServer(server_address, AudioPlayerHandler)
-    print(f"EUPHORIA Server running at http://localhost:{port}/")
+    print(f"EUPHORIA Server running at http://0.0.0.0:{port}/")
     print("Close this window or press Ctrl+C to terminate.")
     try:
         httpd.serve_forever()
