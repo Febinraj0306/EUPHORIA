@@ -213,8 +213,9 @@ export default function App() {
   const animationRef = useRef(null);
   const sourceRef = useRef(null);
 
-  // API requests are proxied to the Python backend via Vite config
-  const API_BASE = '';
+  // In production (Vercel), use the Railway backend URL directly.
+  // In development, use empty string so Vite proxy handles it.
+  const API_BASE = import.meta.env.VITE_API_BASE || 'https://dynamic-analysis-production-cfe8.up.railway.app';
 
   // Get stream URL for the active track
   const getStreamUrl = (track) => {
