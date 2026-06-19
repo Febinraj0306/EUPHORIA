@@ -217,9 +217,52 @@ export default function App() {
   // In development, use empty string so Vite proxy handles it.
   const API_BASE = import.meta.env.VITE_API_BASE || 'https://dynamic-analysis-production-cfe8.up.railway.app';
 
-  // Get stream URL for the active track
-  const getStreamUrl = (track) => {
-    return `${API_BASE}/api/stream-audio/${track.id}`;
+  // Resolved audio stream URL (resolved client-side via Piped API)
+  const [streamUrl, setStreamUrl] = useState("");
+  const [isLoadingStream, setIsLoadingStream] = useState(false);
+
+  // Piped API instances — resolve stream URLs from user's browser (not blocked by YouTube)
+  const PIPED_INSTANCES = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+    'https://api.piped.privacydev.net',
+    'https://pipedapi.in.projectsegfau.lt',
+  ];
+
+  // Resolve audio stream URL client-side via Piped API
+  const resolveStreamUrl = async (videoId) => {
+    // Try each Piped instance
+    for (const instance of PIPED_INSTANCES) {
+      try {
+        const res = await fetch(`${instance}/streams/${videoId}`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const audioStreams = data.audioStreams || [];
+        if (audioStreams.length > 0) {
+          // Sort by bitrate, pick best
+          audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+          const url = audioStreams[0].url;
+          if (url) {
+            console.log(`Stream resolved via ${instance}`);
+            return url;
+          }
+        }
+      } catch (err) {
+        console.warn(`Piped instance ${instance} failed:`, err.message);
+      }
+    }
+
+    // Last resort: try Railway backend
+    try {
+      const res = await fetch(`${API_BASE}/api/stream-audio/${videoId}`, { redirect: 'follow' });
+      if (res.ok || res.redirected) {
+        return res.url;
+      }
+    } catch (err) {
+      console.warn("Railway stream fallback failed:", err.message);
+    }
+
+    return null;
   };
 
   // Play/Pause toggle
@@ -230,9 +273,28 @@ export default function App() {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(err => console.error("Playback failed:", err));
+      // If no stream URL resolved yet, resolve first
+      if (!streamUrl) {
+        setIsLoadingStream(true);
+        resolveStreamUrl(activeTrack.id).then(url => {
+          setIsLoadingStream(false);
+          if (url) {
+            setStreamUrl(url);
+            setTimeout(() => {
+              audioRef.current.load();
+              audioRef.current.play()
+                .then(() => setIsPlaying(true))
+                .catch(err => console.error("Playback failed:", err));
+            }, 100);
+          } else {
+            alert("Could not resolve audio stream. Please try another track.");
+          }
+        });
+      } else {
+        audioRef.current.play()
+          .then(() => setIsPlaying(true))
+          .catch(err => console.error("Playback failed:", err));
+      }
     }
   };
 
@@ -242,17 +304,28 @@ export default function App() {
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(track.duration_secs || 180);
+    setStreamUrl(""); // Clear old stream URL
     
-    // Delay slightly to allow state to propagate, then play
-    setTimeout(() => {
-      if (audioRef.current) {
-        audioRef.current.load();
-        audioRef.current.play()
-          .then(() => setIsPlaying(true))
-          .catch(err => console.error("Auto-playback failed:", err));
+    // Resolve stream URL from Piped, then auto-play
+    setIsLoadingStream(true);
+    resolveStreamUrl(track.id).then(url => {
+      setIsLoadingStream(false);
+      if (url) {
+        setStreamUrl(url);
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.load();
+            audioRef.current.play()
+              .then(() => setIsPlaying(true))
+              .catch(err => console.error("Auto-playback failed:", err));
+          }
+        }, 150);
+      } else {
+        console.error("Failed to resolve stream for:", track.title);
       }
-    }, 100);
+    });
   };
+
 
   // Seek audio helper
   const seekTo = (ratio) => {
@@ -406,7 +479,7 @@ export default function App() {
       {/* Underlying Audio Tag */}
       <audio
         ref={audioRef}
-        src={activeTrack ? getStreamUrl(activeTrack) : ""}
+        src={streamUrl}
         autoPlay={false}
         onError={(e) => {
           const code = e.target.error?.code;
@@ -721,8 +794,12 @@ export default function App() {
               <PrevIcon />
             </button>
             
-            <button className="spotify-play-btn" onClick={togglePlay}>
-              {isPlaying ? (
+            <button className="spotify-play-btn" onClick={togglePlay} disabled={isLoadingStream}>
+              {isLoadingStream ? (
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="#000" fill="none" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}>
+                  <circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" />
+                </svg>
+              ) : isPlaying ? (
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="#000">
                   <rect x="5" y="4" width="4" height="16" rx="1" />
                   <rect x="15" y="4" width="4" height="16" rx="1" />
