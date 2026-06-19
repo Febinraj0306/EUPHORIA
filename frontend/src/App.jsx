@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import ReactPlayer from 'react-player';
 import './App.css';// Custom SVG Album Art Covers
 const ZosoCover = () => (
@@ -70,19 +70,6 @@ const SearchIcon = () => (
   </svg>
 );
 
-const BellIcon = () => (
-  <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}>
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
-
-const MenuIcon = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.8" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}>
-    <line x1="4" y1="9" x2="20" y2="9" />
-    <line x1="9" y1="15" x2="20" y2="15" />
-  </svg>
-);
 
 const HeartIcon = () => (
   <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block' }}>
@@ -139,6 +126,14 @@ const VolumeIcon = () => (
     <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
     <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
     <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+  </svg>
+);
+
+const VolumeMuteIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <line x1="23" y1="9" x2="17" y2="15" />
+    <line x1="17" y1="9" x2="23" y2="15" />
   </svg>
 );
 
@@ -206,13 +201,8 @@ export default function App() {
   const [currentView, setCurrentView] = useState('playlists'); // 'playlists', 'liked', 'search'
   const [volume, setVolume] = useState(0.8);
 
-  // Audio & Web Audio API references
+  // Audio references
   const audioRef = useRef(null);
-  const canvasRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const animationRef = useRef(null);
-  const sourceRef = useRef(null);
 
   // In production (Vercel), use the Railway backend URL directly.
   // In development, use empty string so Vite proxy handles it.
@@ -255,20 +245,16 @@ export default function App() {
   const handleVolumeChange = (e) => {
     const newVol = parseFloat(e.target.value);
     setVolume(newVol);
-    if (audioRef.current) {
-      
-    }
     if (newVol > 0 && isMuted) {
       setIsMuted(false);
     }
   };
 
-
-
   // Mute toggle
   const toggleMute = () => {
-    setIsMuted(!isMuted);
+    setIsMuted(prev => !prev);
   };
+
 
   // Search YouTube
   const handleSearchSubmit = (e) => {
@@ -366,7 +352,7 @@ export default function App() {
         controls={false}
         volume={isMuted ? 0 : volume}
         onProgress={(state) => {
-          if (!searchActive && isPlaying) setCurrentTime(state.playedSeconds);
+          if (isPlaying) setCurrentTime(state.playedSeconds);
         }}
         onDuration={(dur) => setDuration(dur)}
         onEnded={onEnded}
@@ -575,7 +561,7 @@ export default function App() {
         {/* Album Artwork & Description Card */}
         <div className="album-details-container">
           <div className="album-artwork-row">
-            <div className="album-cover-card">
+            <div className="album-cover-card" onClick={() => setShowArtworkModal(true)} style={{ cursor: 'pointer' }} title="View full artwork">
               <TrackCover track={activeTrack} />
             </div>
             {/* Mock next cover card for aesthetic overlap in the UI */}
@@ -727,13 +713,20 @@ export default function App() {
 
         {/* Right: Volume & Extra Controls */}
         <div className="spotify-extra-controls">
-          <VolumeIcon />
+          <button
+            onClick={toggleMute}
+            className="spotify-control-btn"
+            title={isMuted ? 'Unmute' : 'Mute'}
+            style={{ padding: '4px', display: 'flex', alignItems: 'center' }}
+          >
+            {isMuted ? <VolumeMuteIcon /> : <VolumeIcon />}
+          </button>
           <input 
             type="range" 
             min="0" 
             max="1" 
             step="0.01" 
-            value={volume} 
+            value={isMuted ? 0 : volume} 
             onChange={handleVolumeChange} 
             className="spotify-volume-slider"
           />
