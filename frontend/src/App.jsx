@@ -356,12 +356,27 @@ export default function App() {
         }}
         onDuration={(dur) => setDuration(dur)}
         onEnded={onEnded}
-        width="0"
-        height="0"
-        style={{ display: 'none' }}
+        onError={(e) => console.error('ReactPlayer error:', e)}
+        onReady={() => { if (isPlaying && audioRef.current) audioRef.current.seekTo(0); }}
+        width="1px"
+        height="1px"
+        style={{
+          position: 'fixed',
+          bottom: '-10px',
+          left: '-10px',
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
         config={{
           youtube: {
-            playerVars: { autoplay: 1 }
+            playerVars: {
+              autoplay: 1,
+              playsinline: 1,
+              controls: 0,
+              disablekb: 1,
+              fs: 0,
+              modestbranding: 1,
+            }
           }
         }}
       />
