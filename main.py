@@ -6,7 +6,40 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import yt_dlp
 
+# Piped API instances to try as fallback when yt_dlp fails on server IPs
+PIPED_INSTANCES = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+    'https://api.piped.privacydev.net',
+]
+
+def get_stream_url_piped(video_id: str):
+    """Try Piped API instances to get an audio stream URL."""
+    for instance in PIPED_INSTANCES:
+        try:
+            url = f"{instance}/streams/{video_id}"
+            req = urllib.request.Request(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                # Get audio streams from Piped response
+                audio_streams = data.get('audioStreams', [])
+                if audio_streams:
+                    # Sort by bitrate descending, pick best
+                    audio_streams.sort(key=lambda s: s.get('bitrate', 0), reverse=True)
+                    stream_url = audio_streams[0].get('url')
+                    if stream_url:
+                        print(f"Piped ({instance}) resolved stream for {video_id}")
+                        return stream_url
+        except Exception as e:
+            print(f"Piped instance {instance} failed for {video_id}: {e}")
+            continue
+    return None
+
 def get_stream_url(video_id: str):
+    """Try yt_dlp first, then fallback to Piped API."""
+    # Attempt 1: yt_dlp (works locally, may fail on datacenter IPs)
     ydl_opts = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
         'quiet': True,
@@ -22,22 +55,24 @@ def get_stream_url(video_id: str):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            if not info:
-                return None
-            
-            if 'url' in info:
-                return info['url']
-            
-            formats = info.get('formats', [])
-            for f in formats:
-                if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                    return f.get('url')
-            
-            if formats:
-                return formats[0].get('url')
+            if info:
+                if 'url' in info:
+                    return info['url']
+                
+                formats = info.get('formats', [])
+                for f in formats:
+                    if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
+                        return f.get('url')
+                
+                if formats:
+                    return formats[0].get('url')
         except Exception as e:
-            print(f"Error extracting stream URL for {video_id}: {e}")
-            return None
+            print(f"yt_dlp failed for {video_id}: {e}")
+    
+    # Attempt 2: Piped API fallback
+    print(f"yt_dlp failed, trying Piped API for {video_id}...")
+    return get_stream_url_piped(video_id)
+
 
 def search_youtube(query: str, max_results: int = 50):
     ydl_opts = {
