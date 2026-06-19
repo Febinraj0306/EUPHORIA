@@ -106,7 +106,8 @@ class AudioPlayerHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"results": results}).encode('utf-8'))
             return
             
-        # 2. API: Audio Stream Proxy (Handles Range requests & CORS)
+        # 2. API: Audio Stream — redirect browser directly to YouTube URL
+        # This avoids proxying large audio files through the server (prevents timeouts).
         elif path.startswith('/api/stream-audio/'):
             video_id = path.split('/')[-1]
             stream_url = get_stream_url(video_id)
@@ -116,45 +117,11 @@ class AudioPlayerHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'{"error": "Audio stream not found"}')
                 return
-                
-            # Forward client Range request header to YouTube
-            range_header = self.headers.get('Range')
-            req_headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-            if range_header:
-                req_headers['Range'] = range_header
-                
-            try:
-                # Request chunk from YouTube
-                req = urllib.request.Request(stream_url, headers=req_headers)
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    # Echo response status (200 OK or 206 Partial Content)
-                    self.send_response(response.status)
-                    
-                    # Copy pertinent headers from YouTube response to client
-                    for key in ['Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges']:
-                        val = response.getheader(key)
-                        if val:
-                            self.send_header(key, val)
-                    self.end_headers()
-                    
-                    # Stream the bytes in chunks
-                    while True:
-                        chunk = response.read(128 * 1024)  # 128KB chunks
-                        if not chunk:
-                            break
-                        self.wfile.write(chunk)
-            except Exception as e:
-                print(f"Error in streaming proxy for {video_id}: {e}")
-                # Send 502 Bad Gateway if headers have not been sent yet
-                try:
-                    self.send_response(502)
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(f'{{"error": "Failed to proxy stream: {str(e)}"}}'.encode('utf-8'))
-                except:
-                    pass
+
+            # 302 redirect — browser fetches audio directly from YouTube
+            self.send_response(302)
+            self.send_header('Location', stream_url)
+            self.end_headers()
             return
             
         # 3. Serve Frontend Static Build Files

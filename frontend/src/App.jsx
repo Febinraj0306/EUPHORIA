@@ -407,8 +407,13 @@ export default function App() {
       <audio
         ref={audioRef}
         src={activeTrack ? getStreamUrl(activeTrack) : ""}
-        crossOrigin="anonymous"
         autoPlay={false}
+        onError={(e) => {
+          const code = e.target.error?.code;
+          const msg = e.target.error?.message;
+          console.error(`Audio error (code ${code}): ${msg}`, e.target.src);
+          setIsPlaying(false);
+        }}
       />
 
       {/* LEFT PANEL: Playlist & Profile (Dark Slate) */}
