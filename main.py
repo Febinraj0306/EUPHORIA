@@ -8,11 +8,16 @@ import yt_dlp
 
 def get_stream_url(video_id: str):
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',
         'quiet': True,
         'no_warnings': True,
         'nocheckcertificate': True,
         'ignoreerrors': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'mweb', 'web'],
+            }
+        },
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -36,10 +41,15 @@ def get_stream_url(video_id: str):
 
 def search_youtube(query: str, max_results: int = 50):
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',
         'quiet': True,
         'no_warnings': True,
         'extract_flat': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'mweb', 'web'],
+            }
+        },
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
