@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactPlayer from 'react-player';
 import './App.css';// Custom SVG Album Art Covers
 const ZosoCover = () => (
   <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%', display: 'block', background: '#ff2a3b' }}>
@@ -218,122 +219,28 @@ export default function App() {
   const API_BASE = import.meta.env.VITE_API_BASE || 'https://dynamic-analysis-production-cfe8.up.railway.app';
 
   // Resolved audio stream URL (resolved client-side via Piped API)
-  const [streamUrl, setStreamUrl] = useState("");
-  const [isLoadingStream, setIsLoadingStream] = useState(false);
-
-  // Piped API instances — resolve stream URLs from user's browser (not blocked by YouTube)
-  const PIPED_INSTANCES = [
-    'https://pipedapi.kavin.rocks',
-    'https://pipedapi.adminforge.de',
-    'https://api.piped.privacydev.net',
-    'https://pipedapi.in.projectsegfau.lt',
-  ];
-
-  // Resolve audio stream URL client-side via Piped API
-  const resolveStreamUrl = async (videoId) => {
-    // Try each Piped instance
-    for (const instance of PIPED_INSTANCES) {
-      try {
-        const res = await fetch(`${instance}/streams/${videoId}`);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const audioStreams = data.audioStreams || [];
-        if (audioStreams.length > 0) {
-          // Sort by bitrate, pick best
-          audioStreams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-          const url = audioStreams[0].url;
-          if (url) {
-            console.log(`Stream resolved via ${instance}`);
-            return url;
-          }
-        }
-      } catch (err) {
-        console.warn(`Piped instance ${instance} failed:`, err.message);
-      }
-    }
-
-    // Last resort: try Railway backend
-    try {
-      const res = await fetch(`${API_BASE}/api/stream-audio/${videoId}`, { redirect: 'follow' });
-      if (res.ok || res.redirected) {
-        return res.url;
-      }
-    } catch (err) {
-      console.warn("Railway stream fallback failed:", err.message);
-    }
-
-    return null;
-  };
+  
 
   // Play/Pause toggle
   const togglePlay = () => {
     if (!activeTrack) return;
-    
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      // If no stream URL resolved yet, resolve first
-      if (!streamUrl) {
-        setIsLoadingStream(true);
-        resolveStreamUrl(activeTrack.id).then(url => {
-          setIsLoadingStream(false);
-          if (url) {
-            setStreamUrl(url);
-            setTimeout(() => {
-              audioRef.current.load();
-              audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(err => console.error("Playback failed:", err));
-            }, 100);
-          } else {
-            alert("Could not resolve audio stream. Please try another track.");
-          }
-        });
-      } else {
-        audioRef.current.play()
-          .then(() => setIsPlaying(true))
-          .catch(err => console.error("Playback failed:", err));
-      }
-    }
+    setIsPlaying(!isPlaying);
   };
 
   // Select a track to play
   const selectTrack = (track) => {
     setActiveTrack(track);
-    setIsPlaying(false);
+    setIsPlaying(true);
     setCurrentTime(0);
     setDuration(track.duration_secs || 180);
-    setStreamUrl(""); // Clear old stream URL
-    
-    // Resolve stream URL from Piped, then auto-play
-    setIsLoadingStream(true);
-    resolveStreamUrl(track.id).then(url => {
-      setIsLoadingStream(false);
-      if (url) {
-        setStreamUrl(url);
-        setTimeout(() => {
-          if (audioRef.current) {
-            audioRef.current.load();
-            audioRef.current.play()
-              .then(() => setIsPlaying(true))
-              .catch(err => console.error("Auto-playback failed:", err));
-          }
-        }, 150);
-      } else {
-        console.error("Failed to resolve stream for:", track.title);
-      }
-    });
   };
-
 
   // Seek audio helper
   const seekTo = (ratio) => {
     if (audioRef.current && duration) {
       const newTime = ratio * duration;
-      audioRef.current.currentTime = newTime;
+      audioRef.current.seekTo(newTime, 'seconds');
       setCurrentTime(newTime);
-      drawVisualizer(newTime, duration);
     }
   };
 
@@ -349,7 +256,7 @@ export default function App() {
     const newVol = parseFloat(e.target.value);
     setVolume(newVol);
     if (audioRef.current) {
-      audioRef.current.volume = newVol;
+      
     }
     if (newVol > 0 && isMuted) {
       setIsMuted(false);
@@ -360,10 +267,7 @@ export default function App() {
 
   // Mute toggle
   const toggleMute = () => {
-    if (audioRef.current) {
-      audioRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
+    setIsMuted(!isMuted);
   };
 
   // Search YouTube
@@ -428,37 +332,15 @@ export default function App() {
   };
 
   // Handle audio element updates
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const onTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    const onLoadedMetadata = () => {
-      setDuration(audio.duration || activeTrack.duration_secs || 180);
-    };
-
-    const onEnded = () => {
-      if (isReplay) {
-        audio.currentTime = 0;
-        audio.play().catch(err => console.error("Replay failed:", err));
-      } else {
-        playNext();
+  const onEnded = () => {
+    if (isReplay) {
+      if (audioRef.current) {
+        audioRef.current.seekTo(0, 'seconds');
       }
-    };
-
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('loadedmetadata', onLoadedMetadata);
-    audio.addEventListener('ended', onEnded);
-
-    return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-      audio.removeEventListener('ended', onEnded);
-    };
-  }, [activeTrack, playlist]);
+    } else {
+      playNext();
+    }
+  };
 
 
   // Format seconds to MM:SS
@@ -477,15 +359,24 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Underlying Audio Tag */}
-      <audio
+      <ReactPlayer
         ref={audioRef}
-        src={streamUrl}
-        autoPlay={false}
-        onError={(e) => {
-          const code = e.target.error?.code;
-          const msg = e.target.error?.message;
-          console.error(`Audio error (code ${code}): ${msg}`, e.target.src);
-          setIsPlaying(false);
+        url={activeTrack ? `https://www.youtube.com/watch?v=${activeTrack.id}` : null}
+        playing={isPlaying}
+        controls={false}
+        volume={isMuted ? 0 : volume}
+        onProgress={(state) => {
+          if (!searchActive && isPlaying) setCurrentTime(state.playedSeconds);
+        }}
+        onDuration={(dur) => setDuration(dur)}
+        onEnded={onEnded}
+        width="0"
+        height="0"
+        style={{ display: 'none' }}
+        config={{
+          youtube: {
+            playerVars: { autoplay: 1 }
+          }
         }}
       />
 
@@ -794,19 +685,15 @@ export default function App() {
               <PrevIcon />
             </button>
             
-            <button className="spotify-play-btn" onClick={togglePlay} disabled={isLoadingStream}>
-              {isLoadingStream ? (
-                <svg viewBox="0 0 24 24" width="14" height="14" stroke="#000" fill="none" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}>
-                  <circle cx="12" cy="12" r="10" strokeDasharray="31.4 31.4" />
-                </svg>
-              ) : isPlaying ? (
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="#000">
-                  <rect x="5" y="4" width="4" height="16" rx="1" />
-                  <rect x="15" y="4" width="4" height="16" rx="1" />
+            <button className="spotify-play-btn" onClick={togglePlay}>
+              {isPlaying ? (
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="#000">
-                  <path d="M6 4l14 8-14 8z" />
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style={{ marginLeft: '4px' }}>
+                  <path d="M7 4v16l13-8z" />
                 </svg>
               )}
             </button>
