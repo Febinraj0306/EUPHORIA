@@ -77,16 +77,14 @@ async def search(request: Request) -> JSONResponse:
     opts = _ydl_opts({"extract_flat": True, "skip_download": True})
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"ytsearch50:{q}", download=False)
+            info = ydl.extract_info(f"scsearch30:{q}", download=False)
 
         results = []
         for entry in (info or {}).get("entries", []):
             if not entry:
                 continue
             vid = entry.get("id") or entry.get("url", "")
-            thumb = entry.get("thumbnail") or (
-                f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg" if vid else ""
-            )
+            thumb = entry.get("thumbnail") or ""
             results.append({
                 "id":        vid,
                 "title":     entry.get("title", "Unknown Title"),
@@ -102,7 +100,7 @@ async def search(request: Request) -> JSONResponse:
 
 async def stream(request: Request) -> JSONResponse:
     video_id = request.path_params["video_id"]
-    if not re.match(r"^[A-Za-z0-9_\-]{5,20}$", video_id):
+    if not re.match(r"^[A-Za-z0-9_\-]{5,30}$", video_id):
         return _err("Invalid video ID.", 400)
 
     opts = _ydl_opts({
@@ -111,7 +109,7 @@ async def stream(request: Request) -> JSONResponse:
         "skip_download": True,
     })
     try:
-        url = f"https://www.youtube.com/watch?v={video_id}"
+        url = f"https://api.soundcloud.com/tracks/{video_id}"
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
 
@@ -128,7 +126,7 @@ async def stream(request: Request) -> JSONResponse:
         if not stream_url:
             return _err("Could not extract stream URL.")
 
-        thumb = info.get("thumbnail") or f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
+        thumb = info.get("thumbnail") or ""
 
         return JSONResponse({
             "stream_url": stream_url,
