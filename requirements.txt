@@ -1,0 +1,4 @@
+starlette
+uvicorn
+yt-dlp
+python-dotenv
