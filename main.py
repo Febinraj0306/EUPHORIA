@@ -38,6 +38,11 @@ def _ydl_opts(extra: dict | None = None) -> dict:
         "quiet": True,
         "no_warnings": True,
         "nocheckcertificate": True,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "ios"]
+            }
+        },
         "http_headers": {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
