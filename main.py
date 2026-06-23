@@ -40,7 +40,7 @@ def _ydl_opts(extra: dict | None = None) -> dict:
         "nocheckcertificate": True,
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "ios"]
+                "player_client": ["tv", "mweb"]
             }
         },
         "http_headers": {
