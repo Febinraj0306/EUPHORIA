@@ -3,7 +3,7 @@
 Euphoria is a Spotify-inspired, fully functional music player web application that allows you to search and stream songs instantly. The application is built with a beautifully designed, responsive frontend using Vanilla JS/CSS and a lightweight Starlette backend powered by `yt-dlp`.
 
 ## 🌟 Live Preview
-[Insert Live Preview Link Here]
+[https://bright-biscuit-c1a394.netlify.app/](https://bright-biscuit-c1a394.netlify.app/)
 
 ## ✨ Features
 - **Instant Streaming**: Search for any song or artist and start listening immediately without downloading.
@@ -33,9 +33,12 @@ Euphoria is a Spotify-inspired, fully functional music player web application th
    ```
 
 3. **Run the development server:**
-   ```bash
-   uvicorn main:app --reload --port 8000
-   ```
+   - **On Windows:**
+     Simply double-click the `run.bat` file in the root folder.
+   - **On macOS/Linux:**
+     ```bash
+     uvicorn main:app --reload --port 8000
+     ```
 
 4. **Open in browser:**
    Navigate to `http://localhost:8000` to start listening!
