@@ -77,7 +77,7 @@ async def search(request: Request) -> JSONResponse:
     opts = _ydl_opts({"extract_flat": True, "skip_download": True})
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"scsearch30:{q}", download=False)
+            info = ydl.extract_info(f"scsearch65:{q}", download=False)
 
         results = []
         for entry in (info or {}).get("entries", []):
@@ -85,6 +85,8 @@ async def search(request: Request) -> JSONResponse:
                 continue
             vid = entry.get("id") or entry.get("url", "")
             thumb = entry.get("thumbnail") or ""
+            if not thumb and entry.get("thumbnails"):
+                thumb = entry["thumbnails"][-1].get("url", "")
             results.append({
                 "id":        vid,
                 "title":     entry.get("title", "Unknown Title"),
@@ -104,7 +106,7 @@ async def stream(request: Request) -> JSONResponse:
         return _err("Invalid video ID.", 400)
 
     opts = _ydl_opts({
-        "format": "bestaudio/best",
+        "format": "bestaudio[protocol^=http]/best",
         "extract_flat": False,
         "skip_download": True,
     })
@@ -127,6 +129,8 @@ async def stream(request: Request) -> JSONResponse:
             return _err("Could not extract stream URL.")
 
         thumb = info.get("thumbnail") or ""
+        if not thumb and info.get("thumbnails"):
+            thumb = info["thumbnails"][-1].get("url", "")
 
         return JSONResponse({
             "stream_url": stream_url,
