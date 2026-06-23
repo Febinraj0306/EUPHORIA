@@ -1,4 +1,0 @@
-yt-dlp>=2025.1.1
-certifi
-requests
-urllib3
